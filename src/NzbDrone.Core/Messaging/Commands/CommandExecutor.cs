@@ -129,7 +129,11 @@ namespace NzbDrone.Core.Messaging.Commands
 
             for (var i = 0; i < THREAD_LIMIT; i++)
             {
-                var thread = new Thread(ExecuteCommands);
+                var thread = new Thread(ExecuteCommands)
+                {
+                    Name = $"CommandExecutor_{i}",
+                    IsBackground = true
+                };
                 thread.Start();
             }
         }
