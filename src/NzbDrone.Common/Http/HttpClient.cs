@@ -20,6 +20,7 @@ namespace NzbDrone.Common.Http
     {
         HttpResponse Execute(HttpRequest request);
         void DownloadFile(string url, string fileName);
+        void DownloadFile(string url, string fileName, Func<string, bool> urlValidator);
         HttpResponse Get(HttpRequest request);
         HttpResponse<T> Get<T>(HttpRequest request)
             where T : new();
@@ -30,6 +31,7 @@ namespace NzbDrone.Common.Http
 
         Task<HttpResponse> ExecuteAsync(HttpRequest request, CancellationToken cancellationToken = default);
         Task DownloadFileAsync(string url, string fileName, CancellationToken cancellationToken = default);
+        Task DownloadFileAsync(string url, string fileName, Func<string, bool> urlValidator, CancellationToken cancellationToken = default);
         Task<HttpResponse> GetAsync(HttpRequest request, CancellationToken cancellationToken = default);
         Task<HttpResponse<T>> GetAsync<T>(HttpRequest request, CancellationToken cancellationToken = default)
             where T : new();
@@ -67,6 +69,8 @@ namespace NzbDrone.Common.Http
         {
             var cookieContainer = InitializeRequestCookies(request);
 
+            ValidateRequestUrl(request);
+
             var response = await ExecuteRequestAsync(request, cookieContainer, cancellationToken);
 
             if (request.AllowAutoRedirect && response.HasHttpRedirect)
@@ -84,6 +88,8 @@ namespace NzbDrone.Common.Http
                     {
                         throw new WebException($"Too many automatic redirections were attempted for {autoRedirectChain.Join(" -> ")}", WebExceptionStatus.ProtocolError);
                     }
+
+                    ValidateRequestUrl(request);
 
                     // 302 or 303 should default to GET on redirect even if POST on original
                     if (RequestRequiresForceGet(response.StatusCode, response.Request.Method))
@@ -137,6 +143,15 @@ namespace NzbDrone.Common.Http
                 _ => false,
             };
         }
+
+        private static void ValidateRequestUrl(HttpRequest request)
+        {
+            if (request.UrlValidator != null && !request.UrlValidator(request.Url.ToString()))
+            {
+                throw new WebException($"Blocked request to disallowed URL [{request.Url}]", WebExceptionStatus.TrustFailure);
+            }
+        }
+
 
         private async Task<HttpResponse> ExecuteRequestAsync(HttpRequest request, CookieContainer cookieContainer, CancellationToken cancellationToken = default)
         {
@@ -262,7 +277,12 @@ namespace NzbDrone.Common.Http
             }
         }
 
-        public async Task DownloadFileAsync(string url, string fileName, CancellationToken cancellationToken = default)
+        public Task DownloadFileAsync(string url, string fileName, CancellationToken cancellationToken = default)
+        {
+            return DownloadFileAsync(url, fileName, null, cancellationToken);
+        }
+
+        public async Task DownloadFileAsync(string url, string fileName, Func<string, bool> urlValidator, CancellationToken cancellationToken = default)
         {
             var fileNamePart = fileName + ".part";
 
@@ -281,6 +301,7 @@ namespace NzbDrone.Common.Http
                 {
                     var request = new HttpRequest(url);
                     request.AllowAutoRedirect = true;
+                    request.UrlValidator = urlValidator;
                     request.ResponseStream = fileStream;
                     request.RequestTimeout = TimeSpan.FromSeconds(300);
                     var response = await GetAsync(request, cancellationToken);
@@ -312,8 +333,13 @@ namespace NzbDrone.Common.Http
 
         public void DownloadFile(string url, string fileName)
         {
+            DownloadFile(url, fileName, null);
+        }
+
+        public void DownloadFile(string url, string fileName, Func<string, bool> urlValidator)
+        {
             // https://docs.microsoft.com/en-us/archive/msdn-magazine/2015/july/async-programming-brownfield-async-development#the-thread-pool-hack
-            Task.Run(() => DownloadFileAsync(url, fileName)).GetAwaiter().GetResult();
+            Task.Run(() => DownloadFileAsync(url, fileName, urlValidator)).GetAwaiter().GetResult();
         }
 
         public Task<HttpResponse> GetAsync(HttpRequest request, CancellationToken cancellationToken = default)

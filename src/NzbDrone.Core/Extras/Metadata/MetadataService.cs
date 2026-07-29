@@ -474,7 +474,13 @@ namespace NzbDrone.Core.Extras.Metadata
             {
                 if (image.Url.StartsWith("http"))
                 {
-                    _httpClient.DownloadFile(image.Url, fullPath);
+                    if (!HttpUriValidator.IsSafeExternalUrl(image.Url, out var reason))
+                    {
+                        _logger.Warn("Refusing to download image {0} for {1}: {2}", image.Url, series, reason);
+                        return;
+                    }
+
+                    _httpClient.DownloadFile(image.Url, fullPath, url => HttpUriValidator.IsSafeExternalUrl(url, out _));
                 }
                 else if (_diskProvider.FileExists(image.Url))
                 {

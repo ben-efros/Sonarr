@@ -73,7 +73,10 @@ namespace NzbDrone.Core.MediaCover
                 throw new UnauthorizedAccessException($"Refusing to fetch cover image: {reason} ({url})");
             }
 
-            var request = new HttpRequest(url);
+            var request = new HttpRequest(url)
+            {
+                UrlValidator = u => HttpUriValidator.IsSafeExternalUrl(u, out _)
+            };
             var response = await _httpClient.GetAsync(request);
 
             return response.ResponseData;

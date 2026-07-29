@@ -173,7 +173,10 @@ namespace NzbDrone.Core.MediaCover
             }
 
             _logger.Info("Downloading {0} for {1} {2}", cover.CoverType, series, cover.RemoteUrl);
-            _httpClient.DownloadFile(cover.RemoteUrl, fileName);
+
+            // Re-validate on every redirect hop too, since the initial URL
+            // may be safe but redirect to an internal target (SSRF).
+            _httpClient.DownloadFile(cover.RemoteUrl, fileName, url => HttpUriValidator.IsSafeExternalUrl(url, out _));
         }
 
         private void EnsureResizedCovers(Series series, MediaCover cover, bool forceResize)

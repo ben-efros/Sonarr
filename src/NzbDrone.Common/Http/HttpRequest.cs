@@ -43,6 +43,16 @@ namespace NzbDrone.Common.Http
         public IEnumerable<HttpStatusCode> SuppressHttpErrorStatusCodes { get; set; }
         public bool UseSimplifiedUserAgent { get; set; }
         public bool AllowAutoRedirect { get; set; }
+
+        // Optional callback invoked (by HttpClient.ExecuteAsync) against the
+        // initial request URL AND against every subsequent redirect target
+        // before it is followed. Return false to abort the request/redirect.
+        // Used to guard fetches of untrusted, externally-supplied URLs (e.g.
+        // metadata provider cover images) against SSRF via redirect. Left
+        // null (no-op) for all other requests to avoid affecting normal
+        // indexer/download-client traffic, which may legitimately target
+        // private/LAN addresses.
+        public Func<string, bool> UrlValidator { get; set; }
         public bool ConnectionKeepAlive { get; set; }
         public bool LogResponseContent { get; set; }
         public bool LogHttpError { get; set; }

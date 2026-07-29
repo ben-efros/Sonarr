@@ -39,9 +39,9 @@ namespace NzbDrone.Common.Http
 
             if (IPAddress.TryParse(uri.Host, out var literalAddress))
             {
-                if (literalAddress.IsLocalAddress())
+                if (IsBlockedAddress(literalAddress))
                 {
-                    reason = $"Host '{uri.Host}' is a loopback/private/link-local address";
+                    reason = $"Host '{uri.Host}' is a loopback/private/link-local/unspecified address";
                     return false;
                 }
 
@@ -60,13 +60,32 @@ namespace NzbDrone.Common.Http
                 return false;
             }
 
-            if (addresses.Length == 0 || addresses.Any(a => a.IsLocalAddress()))
+            if (addresses.Length == 0 || addresses.Any(IsBlockedAddress))
             {
-                reason = $"Host '{uri.Host}' resolves to a loopback/private/link-local address";
+                reason = $"Host '{uri.Host}' resolves to a loopback/private/link-local/unspecified address";
                 return false;
             }
 
             return true;
+        }
+
+        private static bool IsBlockedAddress(IPAddress address)
+        {
+            // IPAddress.Any (0.0.0.0) / IPv6Any (::) and the 0.0.0.0/8 "this
+            // network" range are not covered by IsLocalAddress() but are
+            // treated as loopback/unroutable by many HTTP stacks.
+            if (IPAddress.Any.Equals(address) || IPAddress.IPv6Any.Equals(address))
+            {
+                return true;
+            }
+
+            if (address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork &&
+                address.GetAddressBytes()[0] == 0)
+            {
+                return true;
+            }
+
+            return address.IsLocalAddress();
         }
     }
 }
