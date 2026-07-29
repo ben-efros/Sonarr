@@ -51,7 +51,7 @@ namespace NzbDrone.Core.Messaging.Commands
 
             lock (_mutex)
             {
-                rval = _items;
+                rval = new List<CommandModel>(_items);
             }
 
             return rval;
