@@ -1,6 +1,8 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Encodings.Web;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authentication;
@@ -51,6 +53,23 @@ namespace Sonarr.Http.Authentication
             return Request.Headers["Authorization"].FirstOrDefault()?.Replace("Bearer ", "");
         }
 
+        private bool IsApiKeyValid(string providedApiKey)
+        {
+            // Constant-time comparison to prevent timing-attack based key recovery.
+            var expectedBytes = Encoding.UTF8.GetBytes(_apiKey ?? string.Empty);
+            var providedBytes = Encoding.UTF8.GetBytes(providedApiKey ?? string.Empty);
+
+            if (expectedBytes.Length != providedBytes.Length)
+            {
+                // Still perform a fixed-time comparison against a same-length buffer
+                // so the response time doesn't leak the correct key length either.
+                CryptographicOperations.FixedTimeEquals(expectedBytes, expectedBytes);
+                return false;
+            }
+
+            return CryptographicOperations.FixedTimeEquals(expectedBytes, providedBytes);
+        }
+
         protected override Task<AuthenticateResult> HandleAuthenticateAsync()
         {
             var providedApiKey = ParseApiKey();
@@ -60,7 +79,7 @@ namespace Sonarr.Http.Authentication
                 return Task.FromResult(AuthenticateResult.NoResult());
             }
 
-            if (_apiKey == providedApiKey)
+            if (IsApiKeyValid(providedApiKey))
             {
                 var claims = new List<Claim>
                 {
