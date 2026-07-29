@@ -37,6 +37,11 @@ namespace NzbDrone.Core.MediaCover
                 return null;
             }
 
+            if (!HttpUriValidator.IsSafeExternalUrl(url, out _))
+            {
+                return null;
+            }
+
             var hash = url.SHA256Hash();
 
             _cache.Set(hash, url, TimeSpan.FromHours(24));
@@ -62,6 +67,11 @@ namespace NzbDrone.Core.MediaCover
         public async Task<byte[]> GetImage(string hash)
         {
             var url = GetUrl(hash);
+
+            if (!HttpUriValidator.IsSafeExternalUrl(url, out var reason))
+            {
+                throw new UnauthorizedAccessException($"Refusing to fetch cover image: {reason} ({url})");
+            }
 
             var request = new HttpRequest(url);
             var response = await _httpClient.GetAsync(request);

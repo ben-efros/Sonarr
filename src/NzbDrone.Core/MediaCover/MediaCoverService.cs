@@ -166,6 +166,12 @@ namespace NzbDrone.Core.MediaCover
         {
             var fileName = GetCoverPath(series.Id, cover.CoverType);
 
+            if (!HttpUriValidator.IsSafeExternalUrl(cover.RemoteUrl, out var reason))
+            {
+                _logger.Warn("Refusing to download {0} for {1}: {2} ({3})", cover.CoverType, series, reason, cover.RemoteUrl);
+                return;
+            }
+
             _logger.Info("Downloading {0} for {1} {2}", cover.CoverType, series, cover.RemoteUrl);
             _httpClient.DownloadFile(cover.RemoteUrl, fileName);
         }
