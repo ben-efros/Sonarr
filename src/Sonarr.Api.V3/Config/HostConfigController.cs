@@ -106,10 +106,10 @@ namespace Sonarr.Api.V3.Config
                 var parts = trimmed.Split('/');
 
                 if (parts.Length != 2 ||
-                    !System.Net.IPAddress.TryParse(parts[0], out _) ||
+                    !System.Net.IPAddress.TryParse(parts[0], out var address) ||
                     !int.TryParse(parts[1], out var prefixLength) ||
                     prefixLength < 0 ||
-                    prefixLength > 128)
+                    prefixLength > (address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork ? 32 : 128))
                 {
                     return false;
                 }

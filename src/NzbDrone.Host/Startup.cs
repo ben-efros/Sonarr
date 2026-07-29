@@ -419,17 +419,41 @@ namespace NzbDrone.Host
             foreach (var entry in cidrList.Split(new[] { ',', ';', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries))
             {
                 var trimmed = entry.Trim();
-                var parts = trimmed.Split('/');
 
-                if (parts.Length == 2 && IPAddress.TryParse(parts[0], out var address) && int.TryParse(parts[1], out var prefixLength))
+                if (TryParseCidr(trimmed, out var network))
                 {
-                    yield return new IPNetwork(address, prefixLength);
+                    yield return network;
                 }
                 else
                 {
                     logger.Warn("Ignoring invalid TrustedProxyCidrs entry: {0}", trimmed);
                 }
             }
+        }
+
+        private static bool TryParseCidr(string cidr, out IPNetwork network)
+        {
+            network = default;
+
+            var parts = cidr.Split('/');
+
+            if (parts.Length != 2 ||
+                !IPAddress.TryParse(parts[0], out var address) ||
+                !int.TryParse(parts[1], out var prefixLength))
+            {
+                return false;
+            }
+
+            // IPv4 addresses allow a prefix length of at most 32; IPv6 allows up to 128.
+            var maxPrefixLength = address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork ? 32 : 128;
+
+            if (prefixLength < 0 || prefixLength > maxPrefixLength)
+            {
+                return false;
+            }
+
+            network = new IPNetwork(address, prefixLength);
+            return true;
         }
 
         private void EnsureSingleInstance(bool isService, IStartupContext startupContext, ISingleInstancePolicy instancePolicy)
