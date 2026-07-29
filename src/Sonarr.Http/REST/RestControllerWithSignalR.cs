@@ -41,9 +41,10 @@ namespace Sonarr.Http.REST
                 return;
             }
 
-            if (message.Action == ModelAction.Deleted || message.Action == ModelAction.Sync)
+            if (message.Action == ModelAction.Sync)
             {
                 BroadcastResourceChange(message.Action);
+                return;
             }
 
             BroadcastResourceChange(message.Action, message.Model.Id);
