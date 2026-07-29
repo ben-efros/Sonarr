@@ -11,6 +11,7 @@ import Icon from 'Components/Icon';
 import ClipboardButton from 'Components/Link/ClipboardButton';
 import ConfirmModal from 'Components/Modal/ConfirmModal';
 import { icons, inputTypes, kinds } from 'Helpers/Props';
+import { useShowAdvancedSettings } from 'Settings/advancedSettingsStore';
 import { InputChanged } from 'typings/inputs';
 import { PendingSection } from 'typings/pending';
 import translate from 'Utilities/String/translate';
@@ -90,6 +91,28 @@ const certificateValidationOptions: EnhancedSelectInputValue<string>[] = [
   },
 ];
 
+export const xForwardedForTrustLevelOptions: EnhancedSelectInputValue<string>[] =
+  [
+    {
+      key: 'rfc1918',
+      get value() {
+        return translate('XForwardedForTrustRfc1918');
+      },
+    },
+    {
+      key: 'custom',
+      get value() {
+        return translate('XForwardedForTrustCustom');
+      },
+    },
+    {
+      key: 'disabled',
+      get value() {
+        return translate('Disabled');
+      },
+    },
+  ];
+
 interface SecuritySettingsProps {
   authenticationMethod: PendingSection<GeneralSettingsModel>['authenticationMethod'];
   authenticationRequired: PendingSection<GeneralSettingsModel>['authenticationRequired'];
@@ -98,6 +121,8 @@ interface SecuritySettingsProps {
   passwordConfirmation: PendingSection<GeneralSettingsModel>['passwordConfirmation'];
   apiKey: PendingSection<GeneralSettingsModel>['apiKey'];
   certificateValidation: PendingSection<GeneralSettingsModel>['certificateValidation'];
+  xForwardedForTrustLevel: PendingSection<GeneralSettingsModel>['xForwardedForTrustLevel'];
+  trustedProxyCidrs: PendingSection<GeneralSettingsModel>['trustedProxyCidrs'];
   isResettingApiKey: boolean;
   onInputChange: (change: InputChanged) => void;
 }
@@ -110,10 +135,13 @@ function SecuritySettings({
   passwordConfirmation,
   apiKey,
   certificateValidation,
+  xForwardedForTrustLevel,
+  trustedProxyCidrs,
   isResettingApiKey,
   onInputChange,
 }: SecuritySettingsProps) {
   const executeCommand = useExecuteCommand();
+  const showAdvancedSettings = useShowAdvancedSettings();
 
   const [isConfirmApiKeyResetModalOpen, setIsConfirmApiKeyResetModalOpen] =
     useState(false);
@@ -143,6 +171,8 @@ function SecuritySettings({
 
   const authenticationEnabled =
     authenticationMethod && authenticationMethod.value !== 'none';
+  const isCustomTrustLevel =
+    xForwardedForTrustLevel && xForwardedForTrustLevel.value === 'custom';
 
   return (
     <FieldSet legend={translate('Security')}>
@@ -255,6 +285,35 @@ function SecuritySettings({
           {...certificateValidation}
         />
       </FormGroup>
+
+      <FormGroup advancedSettings={showAdvancedSettings} isAdvanced={true}>
+        <FormLabel>{translate('XForwardedForTrustLevel')}</FormLabel>
+
+        <FormInputGroup
+          type={inputTypes.SELECT}
+          name="xForwardedForTrustLevel"
+          values={xForwardedForTrustLevelOptions}
+          helpText={translate('XForwardedForTrustLevelHelpText')}
+          helpTextWarning={translate('RestartRequiredHelpTextWarning')}
+          onChange={onInputChange}
+          {...xForwardedForTrustLevel}
+        />
+      </FormGroup>
+
+      {isCustomTrustLevel ? (
+        <FormGroup advancedSettings={showAdvancedSettings} isAdvanced={true}>
+          <FormLabel>{translate('TrustedProxyCidrs')}</FormLabel>
+
+          <FormInputGroup
+            type={inputTypes.TEXT}
+            name="trustedProxyCidrs"
+            helpText={translate('TrustedProxyCidrsHelpText')}
+            helpTextWarning={translate('RestartRequiredHelpTextWarning')}
+            onChange={onInputChange}
+            {...trustedProxyCidrs}
+          />
+        </FormGroup>
+      ) : null}
 
       <ConfirmModal
         isOpen={isConfirmApiKeyResetModalOpen}

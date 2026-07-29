@@ -25,6 +25,7 @@ using NzbDrone.Core.Datastore;
 using NzbDrone.Core.Instrumentation;
 using NzbDrone.Core.Lifecycle;
 using NzbDrone.Core.Messaging.Events;
+using NzbDrone.Core.Security;
 using NzbDrone.Host.AccessControl;
 using NzbDrone.Http.Authentication;
 using NzbDrone.SignalR;
@@ -61,16 +62,6 @@ namespace NzbDrone.Host
                 b.AddFilter("Sonarr.Http.Authentication.ApiKeyAuthenticationHandler", LogLevel.Information);
                 b.AddFilter("Microsoft.AspNetCore.DataProtection.KeyManagement.XmlKeyManager", LogLevel.Error);
                 b.AddNLog();
-            });
-
-            services.Configure<ForwardedHeadersOptions>(options =>
-            {
-                options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost;
-                options.KnownIPNetworks.Add(new IPNetwork(IPAddress.Parse("10.0.0.0"), 8));
-                options.KnownIPNetworks.Add(new IPNetwork(IPAddress.Parse("172.16.0.0"), 12));
-                options.KnownIPNetworks.Add(new IPNetwork(IPAddress.Parse("192.168.0.0"), 16));
-                options.KnownIPNetworks.Add(new IPNetwork(IPAddress.Parse("fc00::"), 7));
-                options.KnownIPNetworks.Add(new IPNetwork(IPAddress.Parse("fe80::"), 10));
             });
 
             services.AddRouting(options => options.LowercaseUrls = true);
@@ -334,7 +325,7 @@ namespace NzbDrone.Host
                 firewallAdapter.MakeAccessible();
             }
 
-            app.UseForwardedHeaders();
+            app.UseForwardedHeaders(BuildForwardedHeadersOptions(configFileProvider));
             app.UseMiddleware<LoggingMiddleware>();
             app.UsePathBase(new PathString(configFileProvider.UrlBase));
             app.UseExceptionHandler(new ExceptionHandlerOptions
@@ -375,6 +366,70 @@ namespace NzbDrone.Host
                 x.MapPost("/profiler/results", context => Task.CompletedTask).RequireAuthorization("UI");
                 x.MapControllers();
             });
+        }
+
+        private static ForwardedHeadersOptions BuildForwardedHeadersOptions(IConfigFileProvider configFileProvider)
+        {
+            var options = new ForwardedHeadersOptions
+            {
+                ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost
+            };
+
+            switch (configFileProvider.XForwardedForTrustLevel)
+            {
+                case XForwardedForTrustLevel.Custom:
+                    foreach (var network in ParseTrustedProxyCidrs(configFileProvider.TrustedProxyCidrs))
+                    {
+                        options.KnownIPNetworks.Add(network);
+                    }
+
+                    break;
+
+                case XForwardedForTrustLevel.Disabled:
+                    // Leave KnownIPNetworks/KnownProxies at defaults (loopback only), so
+                    // forwarded headers from any other peer are not honored.
+                    break;
+
+                case XForwardedForTrustLevel.Rfc1918:
+                default:
+                    // Historical default: trust forwarded headers from any RFC1918
+                    // private address range. Overly broad for hosts not sitting
+                    // behind a dedicated reverse proxy; kept as the default for
+                    // backwards compatibility with existing deployments.
+                    options.KnownIPNetworks.Add(new IPNetwork(IPAddress.Parse("10.0.0.0"), 8));
+                    options.KnownIPNetworks.Add(new IPNetwork(IPAddress.Parse("172.16.0.0"), 12));
+                    options.KnownIPNetworks.Add(new IPNetwork(IPAddress.Parse("192.168.0.0"), 16));
+                    options.KnownIPNetworks.Add(new IPNetwork(IPAddress.Parse("fc00::"), 7));
+                    options.KnownIPNetworks.Add(new IPNetwork(IPAddress.Parse("fe80::"), 10));
+                    break;
+            }
+
+            return options;
+        }
+
+        private static IEnumerable<IPNetwork> ParseTrustedProxyCidrs(string cidrList)
+        {
+            if (string.IsNullOrWhiteSpace(cidrList))
+            {
+                yield break;
+            }
+
+            var logger = NLog.LogManager.GetCurrentClassLogger();
+
+            foreach (var entry in cidrList.Split(new[] { ',', ';', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                var trimmed = entry.Trim();
+                var parts = trimmed.Split('/');
+
+                if (parts.Length == 2 && IPAddress.TryParse(parts[0], out var address) && int.TryParse(parts[1], out var prefixLength))
+                {
+                    yield return new IPNetwork(address, prefixLength);
+                }
+                else
+                {
+                    logger.Warn("Ignoring invalid TrustedProxyCidrs entry: {0}", trimmed);
+                }
+            }
         }
 
         private void EnsureSingleInstance(bool isService, IStartupContext startupContext, ISingleInstancePolicy instancePolicy)

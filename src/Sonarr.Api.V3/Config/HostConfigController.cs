@@ -79,6 +79,43 @@ namespace Sonarr.Api.V3.Config
             SharedValidator.RuleFor(c => c.BackupFolder).IsValidPath().When(c => Path.IsPathRooted(c.BackupFolder));
             SharedValidator.RuleFor(c => c.BackupInterval).InclusiveBetween(1, 7);
             SharedValidator.RuleFor(c => c.BackupRetention).InclusiveBetween(1, 90);
+
+            SharedValidator.RuleFor(c => c.TrustedProxyCidrs)
+                .Must(BeValidCidrList)
+                .WithMessage("Must be a comma separated list of valid CIDR ranges (e.g. 10.0.0.0/8, 192.168.1.10/32)")
+                .When(c => c.XForwardedForTrustLevel == NzbDrone.Core.Security.XForwardedForTrustLevel.Custom);
+        }
+
+        private static bool BeValidCidrList(string cidrList)
+        {
+            if (cidrList.IsNullOrWhiteSpace())
+            {
+                return false;
+            }
+
+            var entries = cidrList.Split(new[] { ',', ';', '\n', '\r' }, System.StringSplitOptions.RemoveEmptyEntries);
+
+            if (entries.Length == 0)
+            {
+                return false;
+            }
+
+            foreach (var entry in entries)
+            {
+                var trimmed = entry.Trim();
+                var parts = trimmed.Split('/');
+
+                if (parts.Length != 2 ||
+                    !System.Net.IPAddress.TryParse(parts[0], out _) ||
+                    !int.TryParse(parts[1], out var prefixLength) ||
+                    prefixLength < 0 ||
+                    prefixLength > 128)
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         private bool IsMatchingPassword(HostConfigResource resource)

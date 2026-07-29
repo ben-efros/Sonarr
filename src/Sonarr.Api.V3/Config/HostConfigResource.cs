@@ -48,6 +48,8 @@ namespace Sonarr.Api.V3.Config
         public int BackupInterval { get; set; }
         public int BackupRetention { get; set; }
         public bool TrustCgnatIpAddresses { get; set; }
+        public XForwardedForTrustLevel XForwardedForTrustLevel { get; set; }
+        public string TrustedProxyCidrs { get; set; }
     }
 
     public static class HostConfigResourceMapper
@@ -93,7 +95,10 @@ namespace Sonarr.Api.V3.Config
                 BackupFolder = configService.BackupFolder,
                 BackupInterval = configService.BackupInterval,
                 BackupRetention = configService.BackupRetention,
-                ApplicationUrl = configService.ApplicationUrl
+                ApplicationUrl = configService.ApplicationUrl,
+                TrustCgnatIpAddresses = model.TrustCgnatIpAddresses,
+                XForwardedForTrustLevel = model.XForwardedForTrustLevel,
+                TrustedProxyCidrs = model.TrustedProxyCidrs
             };
         }
     }

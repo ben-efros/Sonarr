@@ -18,6 +18,7 @@ using NzbDrone.Core.Datastore;
 using NzbDrone.Core.Lifecycle;
 using NzbDrone.Core.Messaging.Commands;
 using NzbDrone.Core.Messaging.Events;
+using NzbDrone.Core.Security;
 using NzbDrone.Core.Update;
 
 namespace NzbDrone.Core.Configuration
@@ -69,6 +70,8 @@ namespace NzbDrone.Core.Configuration
         string PostgresMainDbConnectionString { get; }
         string PostgresLogDbConnectionString { get; }
         bool TrustCgnatIpAddresses { get; }
+        XForwardedForTrustLevel XForwardedForTrustLevel { get; }
+        string TrustedProxyCidrs { get; }
         bool ProfilerEnabled { get; }
         string ProfilerPosition { get; }
     }
@@ -242,6 +245,10 @@ namespace NzbDrone.Core.Configuration
                 : GetValueEnum("AuthenticationRequired", AuthenticationRequiredType.Enabled);
 
         public bool TrustCgnatIpAddresses => _authOptions.TrustCgnatIpAddresses ?? GetValueBoolean("TrustCgnatIpAddresses", false, persist: false);
+
+        public XForwardedForTrustLevel XForwardedForTrustLevel => GetValueEnum("XForwardedForTrustLevel", XForwardedForTrustLevel.Rfc1918, persist: false);
+
+        public string TrustedProxyCidrs => GetValue("TrustedProxyCidrs", string.Empty, persist: false);
 
         public bool AnalyticsEnabled => _logOptions.AnalyticsEnabled ?? GetValueBoolean("AnalyticsEnabled", true, persist: false);
 

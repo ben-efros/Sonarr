@@ -49,6 +49,9 @@ export interface GeneralSettingsModel {
   backupFolder: string;
   backupInterval: number;
   backupRetention: number;
+  trustCgnatIpAddresses: boolean;
+  xForwardedForTrustLevel: string;
+  trustedProxyCidrs: string;
   id: number;
 }
 

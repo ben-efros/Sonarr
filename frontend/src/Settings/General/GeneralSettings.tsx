@@ -143,6 +143,8 @@ function GeneralSettings() {
               authenticationRequired={settings.authenticationRequired}
               username={settings.username}
               password={settings.password}
+              xForwardedForTrustLevel={settings.xForwardedForTrustLevel}
+              trustedProxyCidrs={settings.trustedProxyCidrs}
               passwordConfirmation={settings.passwordConfirmation}
               apiKey={settings.apiKey}
               certificateValidation={settings.certificateValidation}
