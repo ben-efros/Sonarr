@@ -19,6 +19,7 @@ export interface GeneralSettingsModel {
   launchBrowser: boolean;
   authenticationMethod: string;
   authenticationRequired: string;
+  authenticationRequiredCidrs: string;
   analyticsEnabled: boolean;
   username: string;
   password: string;
@@ -52,6 +53,7 @@ export interface GeneralSettingsModel {
   trustCgnatIpAddresses: boolean;
   xForwardedForTrustLevel: string;
   trustedProxyCidrs: string;
+  allowRfc1918UrlsFromExternalSources: boolean;
   id: number;
 }
 

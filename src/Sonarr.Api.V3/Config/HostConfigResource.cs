@@ -50,6 +50,8 @@ namespace Sonarr.Api.V3.Config
         public bool TrustCgnatIpAddresses { get; set; }
         public XForwardedForTrustLevel XForwardedForTrustLevel { get; set; }
         public string TrustedProxyCidrs { get; set; }
+        public string AuthenticationRequiredCidrs { get; set; }
+        public bool AllowRfc1918UrlsFromExternalSources { get; set; }
     }
 
     public static class HostConfigResourceMapper
@@ -98,7 +100,9 @@ namespace Sonarr.Api.V3.Config
                 ApplicationUrl = configService.ApplicationUrl,
                 TrustCgnatIpAddresses = model.TrustCgnatIpAddresses,
                 XForwardedForTrustLevel = model.XForwardedForTrustLevel,
-                TrustedProxyCidrs = model.TrustedProxyCidrs
+                TrustedProxyCidrs = model.TrustedProxyCidrs,
+                AuthenticationRequiredCidrs = model.AuthenticationRequiredCidrs,
+                AllowRfc1918UrlsFromExternalSources = model.AllowRfc1918UrlsFromExternalSources
             };
         }
     }

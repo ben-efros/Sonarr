@@ -123,6 +123,7 @@ interface SecuritySettingsProps {
   certificateValidation: PendingSection<GeneralSettingsModel>['certificateValidation'];
   xForwardedForTrustLevel: PendingSection<GeneralSettingsModel>['xForwardedForTrustLevel'];
   trustedProxyCidrs: PendingSection<GeneralSettingsModel>['trustedProxyCidrs'];
+  allowRfc1918UrlsFromExternalSources: PendingSection<GeneralSettingsModel>['allowRfc1918UrlsFromExternalSources'];
   isResettingApiKey: boolean;
   onInputChange: (change: InputChanged) => void;
 }
@@ -137,6 +138,7 @@ function SecuritySettings({
   certificateValidation,
   xForwardedForTrustLevel,
   trustedProxyCidrs,
+  allowRfc1918UrlsFromExternalSources,
   isResettingApiKey,
   onInputChange,
 }: SecuritySettingsProps) {
@@ -144,6 +146,8 @@ function SecuritySettings({
   const showAdvancedSettings = useShowAdvancedSettings();
 
   const [isConfirmApiKeyResetModalOpen, setIsConfirmApiKeyResetModalOpen] =
+    useState(false);
+  const [isConfirmAllowRfc1918ModalOpen, setIsConfirmAllowRfc1918ModalOpen] =
     useState(false);
 
   const handleApikeyFocus = useCallback(
@@ -165,6 +169,33 @@ function SecuritySettings({
 
   const handleCloseResetApiKeyModal = useCallback(() => {
     setIsConfirmApiKeyResetModalOpen(false);
+  }, []);
+
+  const handleAllowRfc1918Change = useCallback(
+    ({ name, value }: InputChanged<boolean>) => {
+      // Only interrupt with a warning when moving TO the less-secure
+      // (enabled) state; re-disabling it is always safe and needs no
+      // confirmation.
+      if (value) {
+        setIsConfirmAllowRfc1918ModalOpen(true);
+      } else {
+        onInputChange({ name, value });
+      }
+    },
+    [onInputChange]
+  );
+
+  const handleConfirmAllowRfc1918 = useCallback(() => {
+    setIsConfirmAllowRfc1918ModalOpen(false);
+
+    onInputChange({
+      name: 'allowRfc1918UrlsFromExternalSources',
+      value: true,
+    });
+  }, [onInputChange]);
+
+  const handleCancelAllowRfc1918 = useCallback(() => {
+    setIsConfirmAllowRfc1918ModalOpen(false);
   }, []);
 
   // createCommandExecutingSelector(CommandNames.RESET_API_KEY),
@@ -315,6 +346,23 @@ function SecuritySettings({
         </FormGroup>
       ) : null}
 
+      <FormGroup advancedSettings={showAdvancedSettings} isAdvanced={true}>
+        <FormLabel>
+          {translate('AllowRfc1918UrlsFromExternalSources')}
+        </FormLabel>
+
+        <FormInputGroup
+          type={inputTypes.CHECK}
+          name="allowRfc1918UrlsFromExternalSources"
+          helpText={translate('AllowRfc1918UrlsFromExternalSourcesHelpText')}
+          helpTextWarning={translate(
+            'AllowRfc1918UrlsFromExternalSourcesWarning'
+          )}
+          onChange={handleAllowRfc1918Change}
+          {...allowRfc1918UrlsFromExternalSources}
+        />
+      </FormGroup>
+
       <ConfirmModal
         isOpen={isConfirmApiKeyResetModalOpen}
         kind={kinds.DANGER}
@@ -323,6 +371,18 @@ function SecuritySettings({
         confirmLabel={translate('Reset')}
         onConfirm={handleConfirmResetApiKey}
         onCancel={handleCloseResetApiKeyModal}
+      />
+
+      <ConfirmModal
+        isOpen={isConfirmAllowRfc1918ModalOpen}
+        kind={kinds.DANGER}
+        title={translate('AllowRfc1918UrlsFromExternalSourcesConfirmTitle')}
+        message={translate(
+          'AllowRfc1918UrlsFromExternalSourcesConfirmMessage'
+        )}
+        confirmLabel={translate('IUnderstand')}
+        onConfirm={handleConfirmAllowRfc1918}
+        onCancel={handleCancelAllowRfc1918}
       />
     </FieldSet>
   );

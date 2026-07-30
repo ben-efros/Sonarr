@@ -72,6 +72,8 @@ namespace NzbDrone.Core.Configuration
         bool TrustCgnatIpAddresses { get; }
         XForwardedForTrustLevel XForwardedForTrustLevel { get; }
         string TrustedProxyCidrs { get; }
+        string AuthenticationRequiredCidrs { get; }
+        bool AllowRfc1918UrlsFromExternalSources { get; }
         bool ProfilerEnabled { get; }
         string ProfilerPosition { get; }
     }
@@ -246,9 +248,24 @@ namespace NzbDrone.Core.Configuration
 
         public bool TrustCgnatIpAddresses => _authOptions.TrustCgnatIpAddresses ?? GetValueBoolean("TrustCgnatIpAddresses", false, persist: false);
 
-        public XForwardedForTrustLevel XForwardedForTrustLevel => GetValueEnum("XForwardedForTrustLevel", XForwardedForTrustLevel.Rfc1918, persist: false);
+        public XForwardedForTrustLevel XForwardedForTrustLevel => GetValueEnum("XForwardedForTrustLevel", XForwardedForTrustLevel.Disabled, persist: false);
 
         public string TrustedProxyCidrs => GetValue("TrustedProxyCidrs", string.Empty, persist: false);
+
+        // Distinct trust decision from AuthenticationRequired/XForwardedForTrustLevel:
+        // the custom CIDR list of addresses allowed to bypass authentication
+        // when AuthenticationRequired == DisabledForCustomAddresses. Kept
+        // separate from TrustedProxyCidrs (which governs X-Forwarded-For
+        // trust) since the two concerns must never be conflated.
+        public string AuthenticationRequiredCidrs => GetValue("AuthenticationRequiredCidrs", string.Empty, persist: false);
+
+        // Advanced, off-by-default opt-out of the SSRF guard (HttpUriValidator)
+        // for RFC1918 (private network) addresses only -- loopback,
+        // link-local, and other unroutable ranges remain blocked regardless.
+        // Intended for users who self-host metadata/image servers on their
+        // own LAN and want externally-sourced metadata URLs pointing there to
+        // be honored, rather than refused as a suspected SSRF attempt.
+        public bool AllowRfc1918UrlsFromExternalSources => GetValueBoolean("AllowRfc1918UrlsFromExternalSources", false, persist: false);
 
         public bool AnalyticsEnabled => _logOptions.AnalyticsEnabled ?? GetValueBoolean("AnalyticsEnabled", true, persist: false);
 

@@ -145,6 +145,9 @@ function GeneralSettings() {
               password={settings.password}
               xForwardedForTrustLevel={settings.xForwardedForTrustLevel}
               trustedProxyCidrs={settings.trustedProxyCidrs}
+              allowRfc1918UrlsFromExternalSources={
+                settings.allowRfc1918UrlsFromExternalSources
+              }
               passwordConfirmation={settings.passwordConfirmation}
               apiKey={settings.apiKey}
               certificateValidation={settings.certificateValidation}
