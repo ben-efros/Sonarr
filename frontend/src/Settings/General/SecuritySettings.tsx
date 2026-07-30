@@ -57,18 +57,40 @@ export const authenticationRequiredOptions: EnhancedSelectInputValue<string>[] =
       },
     },
     {
+      key: 'disabledForLocalHost',
+      get value() {
+        return translate('DisabledForLocalhost');
+      },
+    },
+    {
       key: 'disabledForLocalAddresses',
       get value() {
         return translate('DisabledForLocalAddresses');
       },
     },
     {
-      key: 'disabledForLocalHost',
+      key: 'disabledForCustomAddresses',
       get value() {
-        return translate('DisabledForLocalhost');
+        return translate('DisabledForCustomAddresses');
+      },
+    },
+    {
+      key: 'disabled',
+      get value() {
+        return translate('Disabled');
       },
     },
   ];
+
+// Selecting one of these values weakens authentication protection and
+// requires the user to confirm they understand the risk before it takes
+// effect. disabledForLocalHost is excluded since it only ever bypasses
+// authentication for requests originating from the machine itself.
+const riskyAuthenticationRequiredValues = [
+  'disabled',
+  'disabledForLocalAddresses',
+  'disabledForCustomAddresses',
+];
 
 const certificateValidationOptions: EnhancedSelectInputValue<string>[] = [
   {
@@ -123,6 +145,7 @@ interface SecuritySettingsProps {
   certificateValidation: PendingSection<GeneralSettingsModel>['certificateValidation'];
   xForwardedForTrustLevel: PendingSection<GeneralSettingsModel>['xForwardedForTrustLevel'];
   trustedProxyCidrs: PendingSection<GeneralSettingsModel>['trustedProxyCidrs'];
+  authenticationRequiredCidrs: PendingSection<GeneralSettingsModel>['authenticationRequiredCidrs'];
   allowRfc1918UrlsFromExternalSources: PendingSection<GeneralSettingsModel>['allowRfc1918UrlsFromExternalSources'];
   isResettingApiKey: boolean;
   onInputChange: (change: InputChanged) => void;
@@ -138,6 +161,7 @@ function SecuritySettings({
   certificateValidation,
   xForwardedForTrustLevel,
   trustedProxyCidrs,
+  authenticationRequiredCidrs,
   allowRfc1918UrlsFromExternalSources,
   isResettingApiKey,
   onInputChange,
@@ -149,6 +173,14 @@ function SecuritySettings({
     useState(false);
   const [isConfirmAllowRfc1918ModalOpen, setIsConfirmAllowRfc1918ModalOpen] =
     useState(false);
+  const [
+    isConfirmAuthenticationRequiredModalOpen,
+    setIsConfirmAuthenticationRequiredModalOpen,
+  ] = useState(false);
+  const [
+    pendingAuthenticationRequiredValue,
+    setPendingAuthenticationRequiredValue,
+  ] = useState<string | null>(null);
 
   const handleApikeyFocus = useCallback(
     (event: FocusEvent<HTMLInputElement, Element>) => {
@@ -198,12 +230,48 @@ function SecuritySettings({
     setIsConfirmAllowRfc1918ModalOpen(false);
   }, []);
 
+  const handleAuthenticationRequiredChange = useCallback(
+    ({ name, value }: InputChanged<string>) => {
+      // Only interrupt with a warning when moving TO a less-secure state;
+      // moving back to Enabled or disabledForLocalHost is always safe and
+      // needs no confirmation.
+      if (riskyAuthenticationRequiredValues.includes(value)) {
+        setPendingAuthenticationRequiredValue(value);
+        setIsConfirmAuthenticationRequiredModalOpen(true);
+      } else {
+        onInputChange({ name, value });
+      }
+    },
+    [onInputChange]
+  );
+
+  const handleConfirmAuthenticationRequired = useCallback(() => {
+    setIsConfirmAuthenticationRequiredModalOpen(false);
+
+    if (pendingAuthenticationRequiredValue !== null) {
+      onInputChange({
+        name: 'authenticationRequired',
+        value: pendingAuthenticationRequiredValue,
+      });
+    }
+
+    setPendingAuthenticationRequiredValue(null);
+  }, [onInputChange, pendingAuthenticationRequiredValue]);
+
+  const handleCancelAuthenticationRequired = useCallback(() => {
+    setIsConfirmAuthenticationRequiredModalOpen(false);
+    setPendingAuthenticationRequiredValue(null);
+  }, []);
+
   // createCommandExecutingSelector(CommandNames.RESET_API_KEY),
 
   const authenticationEnabled =
     authenticationMethod && authenticationMethod.value !== 'none';
   const isCustomTrustLevel =
     xForwardedForTrustLevel && xForwardedForTrustLevel.value === 'custom';
+  const isCustomAuthenticationRequired =
+    authenticationRequired &&
+    authenticationRequired.value === 'disabledForCustomAddresses';
 
   return (
     <FieldSet legend={translate('Security')}>
@@ -230,8 +298,22 @@ function SecuritySettings({
             name="authenticationRequired"
             values={authenticationRequiredOptions}
             helpText={translate('AuthenticationRequiredHelpText')}
-            onChange={onInputChange}
+            onChange={handleAuthenticationRequiredChange}
             {...authenticationRequired}
+          />
+        </FormGroup>
+      ) : null}
+
+      {authenticationEnabled && isCustomAuthenticationRequired ? (
+        <FormGroup>
+          <FormLabel>{translate('AuthenticationRequiredCidrs')}</FormLabel>
+
+          <FormInputGroup
+            type={inputTypes.TEXT}
+            name="authenticationRequiredCidrs"
+            helpText={translate('AuthenticationRequiredCidrsHelpText')}
+            onChange={onInputChange}
+            {...authenticationRequiredCidrs}
           />
         </FormGroup>
       ) : null}
@@ -383,6 +465,16 @@ function SecuritySettings({
         confirmLabel={translate('IUnderstand')}
         onConfirm={handleConfirmAllowRfc1918}
         onCancel={handleCancelAllowRfc1918}
+      />
+
+      <ConfirmModal
+        isOpen={isConfirmAuthenticationRequiredModalOpen}
+        kind={kinds.DANGER}
+        title={translate('AuthenticationRequiredConfirmTitle')}
+        message={translate('AuthenticationRequiredConfirmMessage')}
+        confirmLabel={translate('IUnderstand')}
+        onConfirm={handleConfirmAuthenticationRequired}
+        onCancel={handleCancelAuthenticationRequired}
       />
     </FieldSet>
   );
