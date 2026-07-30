@@ -41,6 +41,11 @@ namespace NzbDrone.Common.Extensions
             // Link local (no IP assigned by DHCP): 169.254.0.0 to 169.254.255.255 (169.254.0.0/16)
             var isLinkLocal = ipv4Bytes[0] == 169 && ipv4Bytes[1] == 254;
 
+            return isLinkLocal || IsRfc1918IPv4(ipv4Bytes);
+        }
+
+        private static bool IsRfc1918IPv4(byte[] ipv4Bytes)
+        {
             // Class A private range: 10.0.0.0 – 10.255.255.255 (10.0.0.0/8)
             var isClassA = ipv4Bytes[0] == 10;
 
@@ -50,13 +55,40 @@ namespace NzbDrone.Common.Extensions
             // Class C private range: 192.168.0.0 – 192.168.255.255 (192.168.0.0/16)
             var isClassC = ipv4Bytes[0] == 192 && ipv4Bytes[1] == 168;
 
-            return isLinkLocal || isClassA || isClassC || isClassB;
+            return isClassA || isClassC || isClassB;
         }
 
         public static bool IsCgnatIpAddress(this IPAddress ipAddress)
         {
             var bytes = ipAddress.GetAddressBytes();
             return bytes.Length == 4 && bytes[0] == 100 && bytes[1] >= 64 && bytes[1] <= 127;
+        }
+
+        // True only for RFC1918 (private-use) ranges, deliberately excluding
+        // loopback and link-local addresses. Used to allow an explicit,
+        // narrowly-scoped opt-out of the SSRF guard for locally-hosted
+        // metadata/image servers, without weakening the loopback/link-local
+        // protections.
+        public static bool IsRfc1918Address(this IPAddress ipAddress)
+        {
+            if (ipAddress.IsIPv4MappedToIPv6)
+            {
+                ipAddress = ipAddress.MapToIPv4();
+            }
+
+            if (ipAddress.AddressFamily == AddressFamily.InterNetwork)
+            {
+                return IsRfc1918IPv4(ipAddress.GetAddressBytes());
+            }
+
+            // IPv6 Unique Local Addresses (fc00::/7) are the closest IPv6
+            // analogue to RFC1918 private IPv4 space.
+            if (ipAddress.AddressFamily == AddressFamily.InterNetworkV6)
+            {
+                return ipAddress.IsIPv6UniqueLocal;
+            }
+
+            return false;
         }
     }
 }
