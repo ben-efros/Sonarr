@@ -43,7 +43,7 @@ namespace NzbDrone.Core.MediaCover
                 return null;
             }
 
-            if (!HttpUriValidator.IsSafeExternalUrl(url, out _, _configFileProvider.AllowRfc1918UrlsFromExternalSources, sourceUrl))
+            if (!HttpUriValidator.IsSafeExternalUrl(url, out _, _configFileProvider.AllowRfc1918UrlsFromExternalSources, sourceUrl, _configFileProvider.AllowNonHttpSchemesFromExternalSources))
             {
                 return null;
             }
@@ -77,15 +77,16 @@ namespace NzbDrone.Core.MediaCover
             var url = GetUrl(hash);
             var sourceUrl = _sourceUrlCache.Find(hash);
             var allowRfc1918 = _configFileProvider.AllowRfc1918UrlsFromExternalSources;
+            var allowNonHttpSchemes = _configFileProvider.AllowNonHttpSchemesFromExternalSources;
 
-            if (!HttpUriValidator.IsSafeExternalUrl(url, out var reason, allowRfc1918, sourceUrl))
+            if (!HttpUriValidator.IsSafeExternalUrl(url, out var reason, allowRfc1918, sourceUrl, allowNonHttpSchemes))
             {
                 throw new UnauthorizedAccessException($"Refusing to fetch cover image: {reason} ({url})");
             }
 
             var request = new HttpRequest(url)
             {
-                UrlValidator = u => HttpUriValidator.IsSafeExternalUrl(u, out _, allowRfc1918, sourceUrl)
+                UrlValidator = u => HttpUriValidator.IsSafeExternalUrl(u, out _, allowRfc1918, sourceUrl, allowNonHttpSchemes)
             };
             var response = await _httpClient.GetAsync(request);
 

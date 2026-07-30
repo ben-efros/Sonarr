@@ -147,6 +147,7 @@ interface SecuritySettingsProps {
   trustedProxyCidrs: PendingSection<GeneralSettingsModel>['trustedProxyCidrs'];
   authenticationRequiredCidrs: PendingSection<GeneralSettingsModel>['authenticationRequiredCidrs'];
   allowRfc1918UrlsFromExternalSources: PendingSection<GeneralSettingsModel>['allowRfc1918UrlsFromExternalSources'];
+  allowNonHttpSchemesFromExternalSources: PendingSection<GeneralSettingsModel>['allowNonHttpSchemesFromExternalSources'];
   isResettingApiKey: boolean;
   onInputChange: (change: InputChanged) => void;
 }
@@ -163,6 +164,7 @@ function SecuritySettings({
   trustedProxyCidrs,
   authenticationRequiredCidrs,
   allowRfc1918UrlsFromExternalSources,
+  allowNonHttpSchemesFromExternalSources,
   isResettingApiKey,
   onInputChange,
 }: SecuritySettingsProps) {
@@ -173,6 +175,10 @@ function SecuritySettings({
     useState(false);
   const [isConfirmAllowRfc1918ModalOpen, setIsConfirmAllowRfc1918ModalOpen] =
     useState(false);
+  const [
+    isConfirmAllowNonHttpSchemesModalOpen,
+    setIsConfirmAllowNonHttpSchemesModalOpen,
+  ] = useState(false);
   const [
     isConfirmAuthenticationRequiredModalOpen,
     setIsConfirmAuthenticationRequiredModalOpen,
@@ -228,6 +234,33 @@ function SecuritySettings({
 
   const handleCancelAllowRfc1918 = useCallback(() => {
     setIsConfirmAllowRfc1918ModalOpen(false);
+  }, []);
+
+  const handleAllowNonHttpSchemesChange = useCallback(
+    ({ name, value }: InputChanged<boolean>) => {
+      // Only interrupt with a warning when moving TO the less-secure
+      // (enabled) state; re-disabling it is always safe and needs no
+      // confirmation.
+      if (value) {
+        setIsConfirmAllowNonHttpSchemesModalOpen(true);
+      } else {
+        onInputChange({ name, value });
+      }
+    },
+    [onInputChange]
+  );
+
+  const handleConfirmAllowNonHttpSchemes = useCallback(() => {
+    setIsConfirmAllowNonHttpSchemesModalOpen(false);
+
+    onInputChange({
+      name: 'allowNonHttpSchemesFromExternalSources',
+      value: true,
+    });
+  }, [onInputChange]);
+
+  const handleCancelAllowNonHttpSchemes = useCallback(() => {
+    setIsConfirmAllowNonHttpSchemesModalOpen(false);
   }, []);
 
   const handleAuthenticationRequiredChange = useCallback(
@@ -445,6 +478,25 @@ function SecuritySettings({
         />
       </FormGroup>
 
+      <FormGroup advancedSettings={showAdvancedSettings} isAdvanced={true}>
+        <FormLabel>
+          {translate('AllowNonHttpSchemesFromExternalSources')}
+        </FormLabel>
+
+        <FormInputGroup
+          type={inputTypes.CHECK}
+          name="allowNonHttpSchemesFromExternalSources"
+          helpText={translate(
+            'AllowNonHttpSchemesFromExternalSourcesHelpText'
+          )}
+          helpTextWarning={translate(
+            'AllowNonHttpSchemesFromExternalSourcesWarning'
+          )}
+          onChange={handleAllowNonHttpSchemesChange}
+          {...allowNonHttpSchemesFromExternalSources}
+        />
+      </FormGroup>
+
       <ConfirmModal
         isOpen={isConfirmApiKeyResetModalOpen}
         kind={kinds.DANGER}
@@ -465,6 +517,20 @@ function SecuritySettings({
         confirmLabel={translate('IUnderstand')}
         onConfirm={handleConfirmAllowRfc1918}
         onCancel={handleCancelAllowRfc1918}
+      />
+
+      <ConfirmModal
+        isOpen={isConfirmAllowNonHttpSchemesModalOpen}
+        kind={kinds.DANGER}
+        title={translate(
+          'AllowNonHttpSchemesFromExternalSourcesConfirmTitle'
+        )}
+        message={translate(
+          'AllowNonHttpSchemesFromExternalSourcesConfirmMessage'
+        )}
+        confirmLabel={translate('IUnderstand')}
+        onConfirm={handleConfirmAllowNonHttpSchemes}
+        onCancel={handleCancelAllowNonHttpSchemes}
       />
 
       <ConfirmModal

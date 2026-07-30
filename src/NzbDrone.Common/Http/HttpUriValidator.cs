@@ -43,7 +43,7 @@ namespace NzbDrone.Common.Http
         // loopback/private/link-local/unspecified address is always logged
         // at Error level -- this setting only controls whether the request
         // is *followed*, never whether it is *reported*.
-        public static bool IsSafeExternalUrl(string url, out string reason, bool allowRfc1918Addresses = false, string sourceUrl = null)
+        public static bool IsSafeExternalUrl(string url, out string reason, bool allowRfc1918Addresses = false, string sourceUrl = null, bool allowNonHttpSchemes = false)
         {
             reason = null;
 
@@ -61,7 +61,15 @@ namespace NzbDrone.Common.Http
 
             if (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps)
             {
-                reason = $"Unsupported scheme '{uri.Scheme}'";
+                if (allowNonHttpSchemes)
+                {
+                    LogUnsupportedScheme(url, sourceUrl, uri.Scheme, "Allowed via AllowNonHttpSchemesFromExternalSources");
+                    return true;
+                }
+
+                reason = $"Unsupported scheme '{uri.Scheme}'. Only http/https URLs are allowed by default as a defense against SSRF. " +
+                    "To allow this scheme, enable 'Allow Non-HTTP(S) URLs From External Sources' under Settings > General > Security (or set AllowNonHttpSchemesFromExternalSources in config.xml).";
+                LogUnsupportedScheme(url, sourceUrl, uri.Scheme, "Blocked");
                 return false;
             }
 
@@ -123,6 +131,20 @@ namespace NzbDrone.Common.Http
             }
 
             return true;
+        }
+
+        private static void LogUnsupportedScheme(string url, string sourceUrl, string scheme, string outcome)
+        {
+            // Always logged, regardless of the allowNonHttpSchemes setting:
+            // an externally-sourced URL using a scheme other than http/https
+            // is unusual enough to warrant visibility whether or not the
+            // request was ultimately permitted through the advanced opt-out.
+            Logger.Warn(
+                "Detected externally-sourced URL with unsupported scheme '{0}'. Outcome: {1} Url: {2} SourceUrl: {3}",
+                scheme,
+                outcome,
+                url,
+                sourceUrl.IsNullOrWhiteSpace() ? "unknown" : sourceUrl);
         }
 
         private static void LogUnsafeUrl(string url, string sourceUrl, string outcome, List<IPAddress> resolvedAddresses)

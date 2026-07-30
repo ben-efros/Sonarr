@@ -54,6 +54,7 @@ export interface GeneralSettingsModel {
   xForwardedForTrustLevel: string;
   trustedProxyCidrs: string;
   allowRfc1918UrlsFromExternalSources: boolean;
+  allowNonHttpSchemesFromExternalSources: boolean;
   id: number;
 }
 

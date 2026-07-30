@@ -478,15 +478,16 @@ namespace NzbDrone.Core.Extras.Metadata
                 if (image.Url.StartsWith("http"))
                 {
                     var allowRfc1918 = _configFileProvider.AllowRfc1918UrlsFromExternalSources;
+                    var allowNonHttpSchemes = _configFileProvider.AllowNonHttpSchemesFromExternalSources;
                     var sourceUrl = $"https://www.thetvdb.com/?tab=series&id={series.TvdbId}";
 
-                    if (!HttpUriValidator.IsSafeExternalUrl(image.Url, out var reason, allowRfc1918, sourceUrl))
+                    if (!HttpUriValidator.IsSafeExternalUrl(image.Url, out var reason, allowRfc1918, sourceUrl, allowNonHttpSchemes))
                     {
                         _logger.Warn("Refusing to download image {0} for {1}: {2}", image.Url, series, reason);
                         return;
                     }
 
-                    _httpClient.DownloadFile(image.Url, fullPath, url => HttpUriValidator.IsSafeExternalUrl(url, out _, allowRfc1918, sourceUrl));
+                    _httpClient.DownloadFile(image.Url, fullPath, url => HttpUriValidator.IsSafeExternalUrl(url, out _, allowRfc1918, sourceUrl, allowNonHttpSchemes));
                 }
                 else if (_diskProvider.FileExists(image.Url))
                 {

@@ -52,6 +52,7 @@ namespace Sonarr.Api.V3.Config
         public string TrustedProxyCidrs { get; set; }
         public string AuthenticationRequiredCidrs { get; set; }
         public bool AllowRfc1918UrlsFromExternalSources { get; set; }
+        public bool AllowNonHttpSchemesFromExternalSources { get; set; }
     }
 
     public static class HostConfigResourceMapper
@@ -102,7 +103,8 @@ namespace Sonarr.Api.V3.Config
                 XForwardedForTrustLevel = model.XForwardedForTrustLevel,
                 TrustedProxyCidrs = model.TrustedProxyCidrs,
                 AuthenticationRequiredCidrs = model.AuthenticationRequiredCidrs,
-                AllowRfc1918UrlsFromExternalSources = model.AllowRfc1918UrlsFromExternalSources
+                AllowRfc1918UrlsFromExternalSources = model.AllowRfc1918UrlsFromExternalSources,
+                AllowNonHttpSchemesFromExternalSources = model.AllowNonHttpSchemesFromExternalSources
             };
         }
     }

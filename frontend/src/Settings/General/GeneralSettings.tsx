@@ -149,6 +149,9 @@ function GeneralSettings() {
               allowRfc1918UrlsFromExternalSources={
                 settings.allowRfc1918UrlsFromExternalSources
               }
+              allowNonHttpSchemesFromExternalSources={
+                settings.allowNonHttpSchemesFromExternalSources
+              }
               passwordConfirmation={settings.passwordConfirmation}
               apiKey={settings.apiKey}
               certificateValidation={settings.certificateValidation}

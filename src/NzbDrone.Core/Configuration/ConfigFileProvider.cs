@@ -74,6 +74,7 @@ namespace NzbDrone.Core.Configuration
         string TrustedProxyCidrs { get; }
         string AuthenticationRequiredCidrs { get; }
         bool AllowRfc1918UrlsFromExternalSources { get; }
+        bool AllowNonHttpSchemesFromExternalSources { get; }
         bool ProfilerEnabled { get; }
         string ProfilerPosition { get; }
     }
@@ -266,6 +267,16 @@ namespace NzbDrone.Core.Configuration
         // own LAN and want externally-sourced metadata URLs pointing there to
         // be honored, rather than refused as a suspected SSRF attempt.
         public bool AllowRfc1918UrlsFromExternalSources => GetValueBoolean("AllowRfc1918UrlsFromExternalSources", false, persist: false);
+
+        // Advanced, off-by-default opt-out of the SSRF guard's URL scheme
+        // check (HttpUriValidator only permits http/https by default).
+        // Exposed in the UI as an advanced setting with a confirmation
+        // warning, for users who rely on a non-http(s) scheme (e.g. a
+        // custom metadata proxy or file-backed source) for cover/metadata
+        // URLs that this SSRF hardening silently broke. Every
+        // rejected/allowed non-http(s) scheme is always logged regardless
+        // of this setting.
+        public bool AllowNonHttpSchemesFromExternalSources => GetValueBoolean("AllowNonHttpSchemesFromExternalSources", false, persist: false);
 
         public bool AnalyticsEnabled => _logOptions.AnalyticsEnabled ?? GetValueBoolean("AnalyticsEnabled", true, persist: false);
 
