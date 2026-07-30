@@ -88,34 +88,7 @@ namespace Sonarr.Api.V3.Config
 
         private static bool BeValidCidrList(string cidrList)
         {
-            if (cidrList.IsNullOrWhiteSpace())
-            {
-                return false;
-            }
-
-            var entries = cidrList.Split(new[] { ',', ';', '\n', '\r' }, System.StringSplitOptions.RemoveEmptyEntries);
-
-            if (entries.Length == 0)
-            {
-                return false;
-            }
-
-            foreach (var entry in entries)
-            {
-                var trimmed = entry.Trim();
-                var parts = trimmed.Split('/');
-
-                if (parts.Length != 2 ||
-                    !System.Net.IPAddress.TryParse(parts[0], out var address) ||
-                    !int.TryParse(parts[1], out var prefixLength) ||
-                    prefixLength < 0 ||
-                    prefixLength > (address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork ? 32 : 128))
-                {
-                    return false;
-                }
-            }
-
-            return true;
+            return CidrUtils.IsValidCidrList(cidrList);
         }
 
         private bool IsMatchingPassword(HostConfigResource resource)

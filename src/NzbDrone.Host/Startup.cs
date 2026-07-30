@@ -17,6 +17,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.OpenApi;
 using NLog.Extensions.Logging;
 using NzbDrone.Common.EnvironmentInfo;
+using NzbDrone.Common.Extensions;
 using NzbDrone.Common.Instrumentation;
 using NzbDrone.Common.Processes;
 using NzbDrone.Common.Serializer;
@@ -378,82 +379,40 @@ namespace NzbDrone.Host
             switch (configFileProvider.XForwardedForTrustLevel)
             {
                 case XForwardedForTrustLevel.Custom:
-                    foreach (var network in ParseTrustedProxyCidrs(configFileProvider.TrustedProxyCidrs))
+                    foreach (var cidr in CidrUtils.SplitCidrList(configFileProvider.TrustedProxyCidrs))
                     {
-                        options.KnownIPNetworks.Add(network);
+                        if (CidrUtils.TryParseCidr(cidr, out var range))
+                        {
+                            options.KnownIPNetworks.Add(new IPNetwork(range.Address, range.PrefixLength));
+                        }
+                        else
+                        {
+                            NLog.LogManager.GetCurrentClassLogger().Warn("Ignoring invalid TrustedProxyCidrs entry: {0}", cidr);
+                        }
                     }
 
                     break;
 
-                case XForwardedForTrustLevel.Disabled:
-                    // Leave KnownIPNetworks/KnownProxies at defaults (loopback only), so
-                    // forwarded headers from any other peer are not honored.
-                    break;
-
                 case XForwardedForTrustLevel.Rfc1918:
-                default:
-                    // Historical default: trust forwarded headers from any RFC1918
-                    // private address range. Overly broad for hosts not sitting
-                    // behind a dedicated reverse proxy; kept as the default for
-                    // backwards compatibility with existing deployments.
+                    // Trust forwarded headers from any RFC1918 private address
+                    // range. Overly broad for hosts not sitting behind a
+                    // dedicated reverse proxy -- not the default, opt-in only.
                     options.KnownIPNetworks.Add(new IPNetwork(IPAddress.Parse("10.0.0.0"), 8));
                     options.KnownIPNetworks.Add(new IPNetwork(IPAddress.Parse("172.16.0.0"), 12));
                     options.KnownIPNetworks.Add(new IPNetwork(IPAddress.Parse("192.168.0.0"), 16));
                     options.KnownIPNetworks.Add(new IPNetwork(IPAddress.Parse("fc00::"), 7));
                     options.KnownIPNetworks.Add(new IPNetwork(IPAddress.Parse("fe80::"), 10));
                     break;
+
+                case XForwardedForTrustLevel.Disabled:
+                default:
+                    // Default: leave KnownIPNetworks/KnownProxies at their
+                    // ASP.NET Core defaults (loopback only), so forwarded
+                    // headers from any other peer are not honored.
+                    break;
             }
 
             return options;
-        }
-
-        private static IEnumerable<IPNetwork> ParseTrustedProxyCidrs(string cidrList)
-        {
-            if (string.IsNullOrWhiteSpace(cidrList))
-            {
-                yield break;
-            }
-
-            var logger = NLog.LogManager.GetCurrentClassLogger();
-
-            foreach (var entry in cidrList.Split(new[] { ',', ';', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries))
-            {
-                var trimmed = entry.Trim();
-
-                if (TryParseCidr(trimmed, out var network))
-                {
-                    yield return network;
-                }
-                else
-                {
-                    logger.Warn("Ignoring invalid TrustedProxyCidrs entry: {0}", trimmed);
-                }
-            }
-        }
-
-        private static bool TryParseCidr(string cidr, out IPNetwork network)
-        {
-            network = default;
-
-            var parts = cidr.Split('/');
-
-            if (parts.Length != 2 ||
-                !IPAddress.TryParse(parts[0], out var address) ||
-                !int.TryParse(parts[1], out var prefixLength))
-            {
-                return false;
-            }
-
-            // IPv4 addresses allow a prefix length of at most 32; IPv6 allows up to 128.
-            var maxPrefixLength = address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork ? 32 : 128;
-
-            if (prefixLength < 0 || prefixLength > maxPrefixLength)
-            {
-                return false;
-            }
-
-            network = new IPNetwork(address, prefixLength);
-            return true;
         }
 
         private void EnsureSingleInstance(bool isService, IStartupContext startupContext, ISingleInstancePolicy instancePolicy)
