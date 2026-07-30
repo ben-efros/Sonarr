@@ -14,7 +14,7 @@ namespace NzbDrone.Http.Authentication
     public class UiAuthorizationHandler : AuthorizationHandler<BypassableDenyAnonymousAuthorizationRequirement>, IAuthorizationRequirement, IHandle<ConfigSavedEvent>
     {
         private readonly IConfigFileProvider _configService;
-        private static AuthenticationRequiredType _authenticationRequired;
+        private AuthenticationRequiredType _authenticationRequired;
 
         public UiAuthorizationHandler(IConfigFileProvider configService)
         {
@@ -24,29 +24,57 @@ namespace NzbDrone.Http.Authentication
 
         protected override Task HandleRequirementAsync(AuthorizationHandlerContext context, BypassableDenyAnonymousAuthorizationRequirement requirement)
         {
-            if (_authenticationRequired == AuthenticationRequiredType.DisabledForLocalAddresses)
+            switch (_authenticationRequired)
             {
-                if (context.Resource is HttpContext httpContext &&
-                    IPAddress.TryParse(httpContext.GetRemoteIP(), out var ipAddress))
-                {
-                    if (ipAddress.IsLocalAddress() ||
-                        (_configService.TrustCgnatIpAddresses && ipAddress.IsCgnatIpAddress()))
+                case AuthenticationRequiredType.Enabled:
+                    // Authentication is always required; nothing bypasses it.
+                    break;
+
+                case AuthenticationRequiredType.Disabled:
+                    // Authentication is never required, regardless of the
+                    // requesting address. This is the most permissive option
+                    // and is equivalent to setting AuthenticationMethod to
+                    // None, but expressed as its own explicit choice.
+                    context.Succeed(requirement);
+                    break;
+
+                case AuthenticationRequiredType.DisabledForLocalhost:
+                    if (TryGetRemoteAddress(context, out var loopbackAddress) && IPAddress.IsLoopback(loopbackAddress))
                     {
                         context.Succeed(requirement);
                     }
-                }
-            }
-            else if (_authenticationRequired == AuthenticationRequiredType.DisabledForLocalhost)
-            {
-                if (context.Resource is HttpContext httpContext &&
-                    IPAddress.TryParse(httpContext.GetRemoteIP(), out var ipAddress) &&
-                    IPAddress.IsLoopback(ipAddress))
-                {
-                    context.Succeed(requirement);
-                }
+
+                    break;
+
+                case AuthenticationRequiredType.DisabledForLocalAddresses:
+                    if (TryGetRemoteAddress(context, out var localAddress) &&
+                        (localAddress.IsLocalAddress() ||
+                         (_configService.TrustCgnatIpAddresses && localAddress.IsCgnatIpAddress())))
+                    {
+                        context.Succeed(requirement);
+                    }
+
+                    break;
+
+                case AuthenticationRequiredType.DisabledForCustomAddresses:
+                    if (TryGetRemoteAddress(context, out var customAddress) &&
+                        CidrUtils.IsAddressInAnyCidr(customAddress, _configService.AuthenticationRequiredCidrs))
+                    {
+                        context.Succeed(requirement);
+                    }
+
+                    break;
             }
 
             return Task.CompletedTask;
+        }
+
+        private static bool TryGetRemoteAddress(AuthorizationHandlerContext context, out IPAddress address)
+        {
+            address = null;
+
+            return context.Resource is HttpContext httpContext &&
+                   IPAddress.TryParse(httpContext.GetRemoteIP(), out address);
         }
 
         public void Handle(ConfigSavedEvent message)

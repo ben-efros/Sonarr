@@ -84,6 +84,11 @@ namespace Sonarr.Api.V3.Config
                 .Must(BeValidCidrList)
                 .WithMessage("Must be a comma separated list of valid CIDR ranges (e.g. 10.0.0.0/8, 192.168.1.10/32)")
                 .When(c => c.XForwardedForTrustLevel == NzbDrone.Core.Security.XForwardedForTrustLevel.Custom);
+
+            SharedValidator.RuleFor(c => c.AuthenticationRequiredCidrs)
+                .Must(BeValidCidrList)
+                .WithMessage("Must be a comma separated list of valid CIDR ranges (e.g. 10.0.0.0/8, 192.168.1.10/32)")
+                .When(c => c.AuthenticationRequired == AuthenticationRequiredType.DisabledForCustomAddresses);
         }
 
         private static bool BeValidCidrList(string cidrList)
