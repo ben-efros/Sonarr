@@ -11,6 +11,8 @@ namespace NzbDrone.Core.Messaging.Commands
     public class CommandExecutor : IHandle<ApplicationStartedEvent>,
                                    IHandle<ApplicationShutdownRequested>
     {
+        private const int THREAD_UPPER_BOUND = 10;
+        private const int THREAD_LOWER_BOUND = 2;
         private const int THREAD_LIMIT = 3;
 
         private readonly Logger _logger;
@@ -122,7 +124,19 @@ namespace NzbDrone.Core.Messaging.Commands
         {
             _cancellationTokenSource = new CancellationTokenSource();
 
-            for (var i = 0; i < THREAD_LIMIT; i++)
+            var envLimit = Environment.GetEnvironmentVariable("THREAD_LIMIT") ?? $"{THREAD_LIMIT}";
+            var threadLimit = THREAD_LIMIT;
+            if (int.TryParse(envLimit, out var parsedLimit))
+            {
+                threadLimit = parsedLimit;
+            }
+
+            threadLimit = Math.Max(THREAD_LOWER_BOUND, threadLimit);
+            threadLimit = Math.Min(THREAD_UPPER_BOUND, threadLimit);
+
+            _logger.Info("Starting {0} threads for tasks.", threadLimit);
+
+            for (var i = 0; i < threadLimit; i++)
             {
                 var thread = new Thread(ExecuteCommands)
                 {
