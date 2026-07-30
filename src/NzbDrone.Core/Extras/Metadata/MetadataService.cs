@@ -28,6 +28,7 @@ namespace NzbDrone.Core.Extras.Metadata
         private readonly IHttpClient _httpClient;
         private readonly IMediaFileAttributeService _mediaFileAttributeService;
         private readonly IMetadataFileService _metadataFileService;
+        private readonly IConfigFileProvider _configFileProvider;
         private readonly Logger _logger;
 
         public MetadataService(IConfigService configService,
@@ -40,6 +41,7 @@ namespace NzbDrone.Core.Extras.Metadata
                                IHttpClient httpClient,
                                IMediaFileAttributeService mediaFileAttributeService,
                                IMetadataFileService metadataFileService,
+                               IConfigFileProvider configFileProvider,
                                Logger logger)
             : base(configService, diskProvider, diskTransferService, logger)
         {
@@ -52,6 +54,7 @@ namespace NzbDrone.Core.Extras.Metadata
             _httpClient = httpClient;
             _mediaFileAttributeService = mediaFileAttributeService;
             _metadataFileService = metadataFileService;
+            _configFileProvider = configFileProvider;
             _logger = logger;
         }
 
@@ -474,13 +477,16 @@ namespace NzbDrone.Core.Extras.Metadata
             {
                 if (image.Url.StartsWith("http"))
                 {
-                    if (!HttpUriValidator.IsSafeExternalUrl(image.Url, out var reason))
+                    var allowRfc1918 = _configFileProvider.AllowRfc1918UrlsFromExternalSources;
+                    var sourceUrl = $"https://www.thetvdb.com/?tab=series&id={series.TvdbId}";
+
+                    if (!HttpUriValidator.IsSafeExternalUrl(image.Url, out var reason, allowRfc1918, sourceUrl))
                     {
                         _logger.Warn("Refusing to download image {0} for {1}: {2}", image.Url, series, reason);
                         return;
                     }
 
-                    _httpClient.DownloadFile(image.Url, fullPath, url => HttpUriValidator.IsSafeExternalUrl(url, out _));
+                    _httpClient.DownloadFile(image.Url, fullPath, url => HttpUriValidator.IsSafeExternalUrl(url, out _, allowRfc1918, sourceUrl));
                 }
                 else if (_diskProvider.FileExists(image.Url))
                 {

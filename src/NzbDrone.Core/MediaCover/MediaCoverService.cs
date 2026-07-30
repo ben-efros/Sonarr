@@ -77,7 +77,7 @@ namespace NzbDrone.Core.MediaCover
                 // Series isn't in Sonarr yet, map via a proxy to circumvent referrer issues
                 foreach (var mediaCover in covers)
                 {
-                    mediaCover.Url = _mediaCoverProxy.RegisterUrl(mediaCover.RemoteUrl);
+                    mediaCover.Url = _mediaCoverProxy.RegisterUrl(mediaCover.RemoteUrl, "series-lookup-preview (not yet added)");
                 }
             }
             else
@@ -165,8 +165,10 @@ namespace NzbDrone.Core.MediaCover
         private void DownloadCover(Series series, MediaCover cover)
         {
             var fileName = GetCoverPath(series.Id, cover.CoverType);
+            var allowRfc1918 = _configFileProvider.AllowRfc1918UrlsFromExternalSources;
+            var sourceUrl = $"https://www.thetvdb.com/?tab=series&id={series.TvdbId}";
 
-            if (!HttpUriValidator.IsSafeExternalUrl(cover.RemoteUrl, out var reason))
+            if (!HttpUriValidator.IsSafeExternalUrl(cover.RemoteUrl, out var reason, allowRfc1918, sourceUrl))
             {
                 _logger.Warn("Refusing to download {0} for {1}: {2} ({3})", cover.CoverType, series, reason, cover.RemoteUrl);
                 return;
@@ -176,7 +178,7 @@ namespace NzbDrone.Core.MediaCover
 
             // Re-validate on every redirect hop too, since the initial URL
             // may be safe but redirect to an internal target (SSRF).
-            _httpClient.DownloadFile(cover.RemoteUrl, fileName, url => HttpUriValidator.IsSafeExternalUrl(url, out _));
+            _httpClient.DownloadFile(cover.RemoteUrl, fileName, url => HttpUriValidator.IsSafeExternalUrl(url, out _, allowRfc1918, sourceUrl));
         }
 
         private void EnsureResizedCovers(Series series, MediaCover cover, bool forceResize)
